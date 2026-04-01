@@ -1,1 +1,1 @@
-require ("KConfig")
+require ("premake-config")
