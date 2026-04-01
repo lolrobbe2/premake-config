@@ -43,12 +43,23 @@ end
 --- Returns the value formatted for a .config file or C header
 -- @return string
 function config_definition:serialize()
+    local prefix = "CONFIG_"
+    local key = prefix .. self.name
+    
     if self.datatype == "bool" then
-        return self.name .. "=" .. (self.value and "y" or "n")
+        if self.value then
+            return string.format("%s=y", key)
+        else
+            -- Kconfig standard for 'n' or unset
+            return string.format("# %s is not set", key)
+        end
+    elseif self.datatype == "int" or self.datatype == "hex" then
+        return string.format("%s=%s", key, tostring(self.value))
     elseif self.datatype == "string" then
-        return self.name .. '="' .. tostring(self.value) .. '"'
+        -- Strings must be quoted in .config files
+        return string.format('%s="%s"', key, tostring(self.value))
     end
-    return self.name .. "=" .. tostring(self.value)
+    
+    return string.format("%s=%s", key, tostring(self.value))
 end
-
 return config_definition

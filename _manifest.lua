@@ -6,5 +6,5 @@
 return {
     "_preload.lua",
     "kconfig_parser.lua",
-    "KConfig.lua"
+    "premake-config.lua"
 }

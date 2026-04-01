@@ -4,8 +4,9 @@
 ---
 
 return {
-    "KConfig.lua",
+    "premake-config.lua",
     "/types/definition.lua",
     "/types/main_menu.lua",
-    "/types/menu_container.lua"
+    "/types/menu_container.lua",
+    "config_reader.lua"
 }
