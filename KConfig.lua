@@ -28,14 +28,20 @@ newaction {
 }
 
 newaction {
-    trigger     = "kconfig-dump",
-    description = "Dump the parser debug info",
+    trigger     = "configure",
+    description = "generate default configuration",
     execute     = function()
         -- 2. Once the user saves and exits, force a project regeneration
-        if has_kconfig() then
+     if has_kconfig() then
             parser_module = require("kconfig_parser")
             local parser = parser_module.new("Kconfig");
-            parser:token_dump();
+            local success, tokens = parser:parse();
+            print(success)
+            if success then
+                local formatter = require("kconfig_formatter").new(tokens)
+                local app = formatter:format()
+                app:save()
+            end
         end
     end
 }
