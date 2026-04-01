@@ -6,17 +6,22 @@ newaction {
     description = "Open the interactive configuration menu",
     execute     = function()
         -- 2. Once the user saves and exits, force a project regeneration
-        if  has_kconfig() then
+        if has_kconfig() then
             parser_module = require("kconfig_parser")
             local parser = parser_module.new("Kconfig");
-            local  success, tokens = parser:parse();
+            local success, tokens = parser:parse();
             print(success)
             if success then
-                --we can init formatter_module$
-                formatter_module = require("kconfig_formatter")
-                local formatter = formatter_module.new(tokens)
+                local formatter = require("kconfig_formatter").new(tokens)
                 local app = formatter:format()
-                app.root:dump()
+
+                -- Prepare the Bare Metal UI
+                local renderer = require("UI.view").new()
+
+                -- Start the engine
+                app:run(renderer)
+
+                print("Configuration complete.")
             end
         end
     end
@@ -27,7 +32,7 @@ newaction {
     description = "Dump the parser debug info",
     execute     = function()
         -- 2. Once the user saves and exits, force a project regeneration
-        if  has_kconfig() then
+        if has_kconfig() then
             parser_module = require("kconfig_parser")
             local parser = parser_module.new("Kconfig");
             parser:token_dump();
