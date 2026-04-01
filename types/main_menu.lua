@@ -112,8 +112,7 @@ function main_menu:run(renderer)
         end
 
         table.insert(frame, divider)
-        table.insert(frame,
-            "(" .. up_key .. "/" .. down_key .. ") Nav  (Space/Enter) Toggle  (B) Back  (" .. save_key .. ") Save")
+        table.insert(frame, "\27[0m(" .. up_key .. "/" .. down_key .. ") Nav  (Space/Enter) Toggle  (B) Back  (" .. save_key .. ") Save")
         table.insert(frame, "\27[J")
 
         io.write(table.concat(frame, "\n"))
@@ -130,7 +129,7 @@ function main_menu:run(renderer)
             selected = math.max(1, selected - 1)
         elseif is_down then
             selected = math.min(#items, selected + 1)
-        elseif input == "q" then
+        elseif input == save_key then
             running = false
         elseif input == "b" or input == "left" then
             if #menu_stack > 1 then
@@ -149,7 +148,7 @@ function main_menu:run(renderer)
             end
         end
     end
-
+    InputHelper.full_clear()
     self:save()
 end
 
