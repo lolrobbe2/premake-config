@@ -23,7 +23,12 @@ menu "System Settings"
 endmenu
 
 menu "Graphics Pipeline"
-    menu "Renderer Selection"
+    choice
+        prompt "Renderer Selection"
+        default RENDERER_VULKAN
+        help
+          Select the primary graphics API for the engine.
+
         config RENDERER_VULKAN
             bool "Vulkan Support"
             select SHADER_COMPILER
@@ -33,13 +38,13 @@ menu "Graphics Pipeline"
         config RENDERER_DX12
             bool "DirectX 12 Support"
             depends on TARGET_OS = "windows"
-    endmenu
+            help
+              Windows-specific low-level graphics API.
+    endchoice
 
     config SCREEN_RESOLUTION
         hex "Default Screen Resolution (Hex)"
         default 0x07800438
-        help
-          Encodes width and height into a single hex value.
 endmenu
 
 config SHADER_COMPILER

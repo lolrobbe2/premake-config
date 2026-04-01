@@ -84,14 +84,14 @@ function main_menu:run(renderer)
     local layout = InputHelper.detect_layout()
     local up_key = (layout == "AZERTY") and "w" or "z"
     local down_key = "s" -- Both use 's' for down usually
-    local save_key = (layout == "AZERTY") and "q" or "a"   
+    local save_key = (layout == "AZERTY") and "q" or "a"
 
     while running do
         local current_menu = menu_stack[#menu_stack]
         local items = current_menu.items
-        
+
         -- 1. Get current terminal width
-        -- Note: If this feels slow on Windows, call it every 5th frame or 
+        -- Note: If this feels slow on Windows, call it every 5th frame or
         -- only when a specific key is pressed.
         local width = InputHelper.get_width()
         local divider = string.rep("-", width)
@@ -106,13 +106,14 @@ function main_menu:run(renderer)
         table.insert(frame, "=== " .. self.title .. " ===")
         table.insert(frame, "Path: " .. self:_get_path(menu_stack))
         table.insert(frame, divider)
-        
-        for _, l in ipairs(lines) do 
-            table.insert(frame, l) 
+
+        for _, l in ipairs(lines) do
+            table.insert(frame, l)
         end
-        
+
         table.insert(frame, divider)
-        table.insert(frame, "(" .. up_key .. "/" .. down_key .. ") Nav  (Space/Enter) Toggle  (B) Back  (".. save_key ..") Save")
+        table.insert(frame,
+            "(" .. up_key .. "/" .. down_key .. ") Nav  (Space/Enter) Toggle  (B) Back  (" .. save_key .. ") Save")
         table.insert(frame, "\27[J")
 
         io.write(table.concat(frame, "\n"))
@@ -120,7 +121,7 @@ function main_menu:run(renderer)
 
         -- 3. Input & Logic
         local input = InputHelper.get_char()
-        
+
         -- We handle \r (Windows Enter) and \n (Unix Enter) and " " (Space)
         local is_up = (input == up_key or input == "up" or input == "\27[a")
         local is_down = (input == down_key or input == "down" or input == "\27[b")
@@ -131,7 +132,7 @@ function main_menu:run(renderer)
             selected = math.min(#items, selected + 1)
         elseif input == "q" then
             running = false
-        elseif input == "b" or input =="left" then
+        elseif input == "b" or input == "left" then
             if #menu_stack > 1 then
                 table.remove(menu_stack)
                 selected = 1
@@ -154,46 +155,145 @@ end
 
 --- Internal: Handles value toggling/input
 function main_menu:_handle_interaction(item, renderer)
-    if item.datatype == "bool" then
-        item.value = not item.value
-    else
-        local width = InputHelper.get_width()
-        InputHelper.full_clear()
-        
-        -- Center vertically (push down)
-        for i = 1, 6 do print("") end 
+    local handlers = {
+        bool   = self._handle_bool,
+        enum   = self._handle_enum,
+        string = self._handle_string,
+        number = self._handle_number,
+        int    = self._handle_number,
+        path   = self._handle_string -- Paths use the same UI as strings
+    }
 
-        -- Prepare the content for the box
+    local handler = handlers[item.datatype]
+    if handler then
+        handler(self, item, renderer)
+    else
+        -- Fallback for unknown types
+        self:_handle_string(item, renderer)
+    end
+end
+
+function main_menu:_handle_bool(item)
+    -- Bare metal: just flip it and let the next loop draw the change
+    item.value = not item.value
+end
+
+function main_menu:_handle_enum(item, renderer)
+    if not item.choices or #item.choices == 0 then return end
+
+    local width = InputHelper.get_width()
+    local selected = 1
+
+    -- Find current index to pre-select it
+    for i, choice in ipairs(item.choices) do
+        if choice == item.value then
+            selected = i
+            break
+        end
+    end
+
+    local choosing = true
+    while choosing do
+        InputHelper.clear()
+
+        -- Build the list for the box
         local content = {
-            "EDITING: " .. (item.name or "Value"),
-            "------------------------------------------------------------", -- Internal divider
-            "Current: " .. tostring(item.value or "(empty)"),
-            "",
-            "Enter New Value:",
-            "" -- This is our typing row
+            " SELECT OPTION: " .. item.name,
+            "------------------------------------------------------------",
+            "" -- Spacer
         }
 
-        -- Generate and print
-        local box = renderer:centered_box(content, width)
-        for _, line in ipairs(box) do 
-            print(line) 
+        for i, choice in ipairs(item.choices) do
+            local cursor = (i == selected) and " > " or "   "
+            local mark   = (choice == item.value) and "[*]" or "[ ]"
+            table.insert(content, string.format("%s %s %s", cursor, mark, choice))
         end
 
-        -- POSITION THE CURSOR
-        -- Move up 2 lines (past bottom border + empty row)
-        io.write("\27[2A") 
-        local left_margin = math.floor((width - 60) / 2) + 2
-        io.write("\27[" .. left_margin .. "C")
-        
-        io.write("> ")
-        local val = io.read()
-        
-        if val and val ~= "" then 
-            item.value = val 
+        table.insert(content, "") -- Spacer
+        table.insert(content, " (Z/S) Move  (Enter) Select  (B/Esc) Cancel")
+
+        -- Render the box
+        for i = 1, 4 do print("") end -- Vertical center
+        local box = renderer:centered_box(content, width)
+        for _, line in ipairs(box) do print(line) end
+
+        -- Handle Input (Directly using InputHelper)
+        local char = InputHelper.get_char()
+
+        -- Use the same logic as your main loop
+        if char == "z" or char == "up" then
+            selected = math.max(1, selected - 1)
+        elseif char == "s" or char == "down" then
+            selected = math.min(#item.choices, selected + 1)
+        elseif char == "\r" or char == "\n" or char == " " or char == "" then
+            item.value = item.choices[selected]
+            choosing = false
+        elseif char == "b" or char == "esc" or char == "left" then
+            choosing = false
         end
-        
-        InputHelper.full_clear()
     end
+
+    InputHelper.full_clear()
+end
+
+function main_menu:_handle_string(item, renderer)
+    local width = InputHelper.get_width()
+    InputHelper.full_clear()
+
+    -- Vertical padding
+    for i = 1, 6 do print("") end
+
+    local content = {
+        " EDITING STRING: " .. item.name,
+        " +----------------------------------------------------------+",
+        " Current: " .. tostring(item.value or ""),
+        " ",
+        " Enter New Value:",
+        " " -- Typing row
+    }
+
+    local box = renderer:centered_box(content, width)
+    for _, line in ipairs(box) do print(line) end
+
+    -- Position cursor 2 lines up and inside the box
+    io.write("\27[2A\27[" .. (math.floor((width - 60) / 2) + 3) .. "C> ")
+
+    local val = io.read()
+    if val and val ~= "" then item.value = val end
+
+    InputHelper.full_clear()
+end
+
+function main_menu:_handle_number(item, renderer)
+    local width = InputHelper.get_width()
+    InputHelper.full_clear()
+
+    for i = 1, 6 do print("") end
+
+    local content = {
+        " EDITING NUMBER: " .. item.name,
+        " +----------------------------------------------------------+",
+        " Current: " .. tostring(item.value or 0),
+        " ",
+        " Enter Numeric Value:",
+        " "
+    }
+
+    local box = renderer:centered_box(content, width)
+    for _, line in ipairs(box) do print(line) end
+
+    io.write("\27[2A\27[" .. (math.floor((width - 60) / 2) + 3) .. "C> ")
+
+    local val = io.read()
+    local num = tonumber(val)
+
+    if num then
+        item.value = num
+    elseif val ~= "" then
+        -- Optional: Add an error "flash" here if it's not a number
+    end
+
+    InputHelper.full_clear()
 end
 
 --- Internal: Helper for Breadcrumbs
